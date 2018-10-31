@@ -112,6 +112,8 @@ cards = [
 cardFromNumber = (num) ->
   num = (num + '').replace(/\D/g, '')
   return card for card in cards when card.pattern.test(num)
+  if num
+    return card
 
 cardFromType = (type) ->
   return card for card in cards when card.type is type
@@ -215,11 +217,11 @@ formatBackCardNumber = (e) ->
 
 formatExpiry = (e) ->
   # Only format if input is a number
-  digit = String.fromCharCode(e.which)
+  digit = Payment.parseNumeric(e);
   return unless /^\d+$/.test(digit)
 
   target = e.target
-  val     = QJ.val(target) + digit
+  val     = QJ.val(target)
 
   if /^\d$/.test(val) and val not in ['0', '1']
     e.preventDefault()
@@ -296,6 +298,12 @@ formatBackExpiry = (e) ->
 #  Restrictions
 
 restrictNumeric = (e) ->
+  target = e.target;
+  value = QJ.val(target);
+
+  if e.data
+    QJ.val(target, value.replace(/[^ \/ \d]/g, ''))
+
   # Key event is for a browser shortcut
   return true if e.metaKey or e.ctrlKey
 
@@ -332,12 +340,12 @@ restrictCardNumber = (maxLength) -> (e) ->
 
 restrictExpiry = (e, length) ->
   target = e.target
-  digit   = String.fromCharCode(e.which)
+  digit = Payment.parseNumeric(e);
   return unless /^\d+$/.test(digit)
 
   return if hasTextSelected(target)
 
-  value = QJ.val(target) + digit
+  value = QJ.val(target)
   value = value.replace(/\D/g, '')
 
   return e.preventDefault() if value.length > length
@@ -469,6 +477,13 @@ class Payment
         groups.shift()
         groups = groups.filter((n) -> n) # Filter empty groups
         groups.join(' ')
+    parseNumeric: (e) ->
+      if e.data
+        return parseInt(e.data.slice(e.data.length - 1))
+      return null;
+
+  @parseNumeric: (e) ->
+    return Payment.fns.parseNumeric(e)
   @restrictNumeric: (el) ->
     QJ.on el, 'keypress', restrictNumeric
   @cardExpiryVal: (el) ->
@@ -483,8 +498,8 @@ class Payment
       [month, year] = el
       @formatCardExpiryMultiple month, year
     else
-      QJ.on el, 'keypress', restrictCombinedExpiry
-      QJ.on el, 'keypress', formatExpiry
+      QJ.on el, 'input', restrictCombinedExpiry
+      QJ.on el, 'input', formatExpiry
       QJ.on el, 'keypress', formatForwardSlash
       QJ.on el, 'keypress', formatForwardExpiry
       QJ.on el, 'keydown', formatBackExpiry

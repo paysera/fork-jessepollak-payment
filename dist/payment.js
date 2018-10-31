@@ -68,6 +68,13 @@ var payment =
 	    cvcLength: [3],
 	    luhn: true
 	  }, {
+	    type: 'hipercard',
+	    pattern: /^(384100|384140|384160|606282|637095|637568|60(?!11))/,
+	    format: defaultFormat,
+	    length: [14, 15, 16, 17, 18, 19],
+	    cvcLength: [3],
+	    luhn: true
+	  }, {
 	    type: 'dinersclub',
 	    pattern: /^(36|38|30[0-5])/,
 	    format: /(\d{1,4})(\d{1,6})?(\d{1,4})?/,
@@ -125,7 +132,7 @@ var payment =
 	    luhn: true
 	  }, {
 	    type: 'elo',
-	    pattern: /^(4011|438935|45(1416|76|7393)|50(4175|6699|67|90[4-7])|63(6297|6368))/,
+	    pattern: /^(4011(78|79)|43(1274|8935)|45(1416|7393|763(1|2))|50(4175|6699|67[0-7][0-9]|9000)|627780|63(6297|6368)|650(03([^4])|04([0-9])|05(0|1)|4(0[5-9]|3[0-9]|8[5-9]|9[0-9])|5([0-2][0-9]|3[0-8])|9([2-6][0-9]|7[0-8])|541|700|720|901)|651652|655000|655021)/,
 	    format: defaultFormat,
 	    length: [16],
 	    cvcLength: [3],
@@ -148,6 +155,9 @@ var payment =
 	    if (card.pattern.test(num)) {
 	      return card;
 	    }
+	  }
+	  if (num) {
+	    return card;
 	  }
 	};
 
@@ -226,7 +236,9 @@ var payment =
 	      upperLengths = card.length;
 	    }
 	    if (maxLength) {
-	      upperLengths = [Math.min(maxLength, upperLengths.slice(0).pop())];
+	      upperLengths = upperLengths.filter(function(x) {
+	        return x <= maxLength;
+	      });
 	    }
 	    for (i = j = 0, len = upperLengths.length; j < len; i = ++j) {
 	      upperLength = upperLengths[i];
@@ -279,12 +291,12 @@ var payment =
 
 	formatExpiry = function(e) {
 	  var digit, target, val;
-	  digit = String.fromCharCode(e.which);
+	  digit = Payment.parseNumeric(e);
 	  if (!/^\d+$/.test(digit)) {
 	    return;
 	  }
 	  target = e.target;
-	  val = QJ.val(target) + digit;
+	  val = QJ.val(target);
 	  if (/^\d$/.test(val) && (val !== '0' && val !== '1')) {
 	    e.preventDefault();
 	    QJ.val(target, "0" + val + " / ");
@@ -368,7 +380,12 @@ var payment =
 	};
 
 	restrictNumeric = function(e) {
-	  var input;
+	  var input, target, value;
+	  target = e.target;
+	  value = QJ.val(target);
+	  if (e.data) {
+	    QJ.val(target, value.replace(/[^ \/ \d]/g, ''));
+	  }
 	  if (e.metaKey || e.ctrlKey) {
 	    return true;
 	  }
@@ -416,14 +433,14 @@ var payment =
 	restrictExpiry = function(e, length) {
 	  var digit, target, value;
 	  target = e.target;
-	  digit = String.fromCharCode(e.which);
+	  digit = Payment.parseNumeric(e);
 	  if (!/^\d+$/.test(digit)) {
 	    return;
 	  }
 	  if (hasTextSelected(target)) {
 	    return;
 	  }
-	  value = QJ.val(target) + digit;
+	  value = QJ.val(target);
 	  value = value.replace(/\D/g, '');
 	  if (value.length > length) {
 	    return e.preventDefault();
@@ -587,7 +604,17 @@ var payment =
 	        });
 	        return groups.join(' ');
 	      }
+	    },
+	    parseNumeric: function(e) {
+	      if (e.data) {
+	        return parseInt(e.data.slice(e.data.length - 1));
+	      }
+	      return null;
 	    }
+	  };
+
+	  Payment.parseNumeric = function(e) {
+	    return Payment.fns.parseNumeric(e);
 	  };
 
 	  Payment.restrictNumeric = function(el) {
@@ -611,8 +638,8 @@ var payment =
 	      month = el[0], year = el[1];
 	      this.formatCardExpiryMultiple(month, year);
 	    } else {
-	      QJ.on(el, 'keypress', restrictCombinedExpiry);
-	      QJ.on(el, 'keypress', formatExpiry);
+	      QJ.on(el, 'input', restrictCombinedExpiry);
+	      QJ.on(el, 'input', formatExpiry);
 	      QJ.on(el, 'keypress', formatForwardSlash);
 	      QJ.on(el, 'keypress', formatForwardExpiry);
 	      QJ.on(el, 'keydown', formatBackExpiry);
@@ -633,6 +660,7 @@ var payment =
 	    QJ.on(el, 'keydown', formatBackCardNumber);
 	    QJ.on(el, 'keyup blur', setCardType);
 	    QJ.on(el, 'paste', reFormatCardNumber);
+	    QJ.on(el, 'input', reFormatCardNumber);
 	    return el;
 	  };
 
