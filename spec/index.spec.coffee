@@ -294,9 +294,9 @@ describe 'payment', ->
       Payment.formatCardNumber(number)
 
       ev = document.createEvent "HTMLEvents"
-      ev.initEvent "keypress", true, true
-      ev.eventName = "keypress"
-      ev.which = "0".charCodeAt(0)
+      ev.initEvent "input", true, false
+      ev.eventName = "input"
+      ev.data = "0"
 
       number.dispatchEvent(ev)
 
